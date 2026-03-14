@@ -53,6 +53,7 @@ optdepends=('geoclue: geoinformation support'
 _tdlib_commit=6d74326c5ce53aeb52496f157f0080d9b8515970
 source=("AyuGram-$pkgver.tar.gz::https://github.com/AyuGram/AyuGramDesktop/archive/refs/tags/v$pkgver.tar.gz"
         "td-$_tdlib_commit.tar.gz::https://github.com/tdlib/td/archive/$_tdlib_commit.tar.gz"
+        "fix-dbus-namespaces.patch"
         "0001-force-minizip-includes.diff"
         "codegen-job-pools.patch")
 declare -Ag _modules_name_map=([cmake]=https://github.com/desktop-app/cmake_helpers/archive/ba366ade3e70c64d1dd854382abd74f532ba41a1.tar.gz
@@ -153,6 +154,7 @@ unset _source_str _uri
 
 sha256sums=('ebeec29f6ad1adf1cfa1d5dc242f13dba48404b645d75e953e57148e533733f3'
             '9e1c088fbea876b8a6b85b8478abc2facd05e380874a55d7ea687213e4ca3110'
+            '255bc94809b4b9de4733ea11e94cf41686d1da954944d87e3ffc9bd4cb037d77'
             '1ff58d023daa8882e952d2322c7b119e31f98ddecea32473bd8079d93295e7b6'
             '5260a63ed719ff4f1b365f17b824034f0001ce4254ac29be792146b1df18334f'
             'd0d4ea2fddcbc7d10ace2c37309feb09da87e8ce7ced6ce73592da1359f4765f'
@@ -194,6 +196,8 @@ sha256sums=('ebeec29f6ad1adf1cfa1d5dc242f13dba48404b645d75e953e57148e533733f3'
 prepare() {
     cd "$srcdir/AyuGramDesktop-$pkgver"
     _fill_gitmodules_recursively
+    # Fix namespace order in DBus utility to avoid serialization build issues.
+    patch --verbose -Np1 -i "$srcdir/fix-dbus-namespaces.patch"
     #/usr/bin/ld: /usr/lib/libprotobuf-lite.so: undefined reference to symbol '_ZN4absl12lts_2023080212log_internal17MakeCheckOpStringIllEEPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEET_T0_PKc'
     #/usr/bin/ld: /usr/lib/libabsl_log_internal_check_op.so.2308.0.0: error adding symbols: DSO missing from command line
     #collect2: error: ld returned 1 exit status

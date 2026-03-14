@@ -1,0 +1,18 @@
+diff --git a/Telegram/lib_base/base/platform/linux/base_linux_dbus_utilities.cpp b/Telegram/lib_base/base/platform/linux/base_linux_dbus_utilities.cpp
+index 86316e9..54fc339 100644
+--- a/Telegram/lib_base/base/platform/linux/base_linux_dbus_utilities.cpp
++++ b/Telegram/lib_base/base/platform/linux/base_linux_dbus_utilities.cpp
+@@ -9,11 +9,11 @@
+ #include <xdgdbus/xdgdbus.hpp>
+ 
+ namespace base::Platform::DBus {
+-namespace {
+-
+ using namespace gi::repository;
+ namespace GObject = gi::repository::GObject;
+ 
++namespace {
++
+ gi::result<XdgDBus::DBus> MakeInterface(const GDBusConnection *connection) {
+ 	return XdgDBus::DBusProxy::new_sync(
+ 		gi::wrap(connection, gi::transfer_none),
