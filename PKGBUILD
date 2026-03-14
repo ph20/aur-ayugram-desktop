@@ -7,10 +7,10 @@ pkgdesc="Desktop Telegram client with good customization and Ghost mode."
 arch=("x86_64" "aarch64")
 url="https://github.com/AyuGram/AyuGramDesktop"
 license=("GPL-3.0-or-later WITH OpenSSL-exception")
+options=('!strip' '!lto')
 depends=('abseil-cpp'
          'ada'
          'ffmpeg'
-         'glib2'
          'hicolor-icon-theme'
          'hunspell'
          'kcoreaddons'
@@ -206,24 +206,35 @@ prepare() {
     patch -Np1 -d Telegram/lib_base -i "$srcdir/0001-force-minizip-includes.diff"
 }
 build() {
-    CXXFLAGS+=' -ffat-lto-objects'
-    cmake -B td-$_tdlib_commit/build -S td-$_tdlib_commit \
+    # Cap parallelism by default; users can override via env.
+    : "${CMAKE_BUILD_PARALLEL_LEVEL:=4}"
+    export CMAKE_BUILD_PARALLEL_LEVEL
+
+    # Keep Ninja from oversubscribing CPU under load (default: half the cores, min 1).
+    local _ninja_load=${NINJA_MAX_LOAD:-$(( $(nproc) / 2 ))}
+    (( _ninja_load < 1 )) && _ninja_load=1
+    cmake -B td-$_tdlib_commit/build -S td-$_tdlib_commit -G Ninja \
+        -DCMAKE_JOB_POOLS=link=1 \
+        -DCMAKE_JOB_POOL_LINK=link \
         -DCMAKE_BUILD_TYPE=None \
         -DCMAKE_INSTALL_PREFIX="$PWD/td-$_tdlib_commit/install" \
         -Wno-dev \
         -DTD_E2E_ONLY=ON
-    cmake --build td-$_tdlib_commit/build
-    cmake --install td-$_tdlib_commit/build  
+    cmake --build td-$_tdlib_commit/build -- -l"${_ninja_load}"
+    cmake --install td-$_tdlib_commit/build
     # https://github.com/AyuGram/AyuGramDesktop/blob/dev/docs/building-linux.md#building-the-project
     # for API_ID and API_HASH
     cmake -B build -S AyuGramDesktop-$pkgver -G Ninja \
+        -DCMAKE_JOB_POOLS=codegen=1\;link=1 \
+        -DCMAKE_JOB_POOL_LINK=link \
         -DCMAKE_INSTALL_PREFIX="/usr" \
         -DCMAKE_BUILD_TYPE=Release \
         -DTDESKTOP_API_ID="${MAKEPKG_AYUGRAM_API_ID:-2040}" \
         -DTDESKTOP_API_HASH="${MAKEPKG_AYUGRAM_API_HASH:-b18441a1ff607e10a989891a5462e627}" \
         -DDESKTOP_APP_DISABLE_AUTOUPDATE=True \
+        -DDESKTOP_APP_GDBUSCODEGEN="/usr/bin/gdbus-codegen" \
         -Dtde2e_DIR="$PWD/td-$_tdlib_commit/install/lib/cmake/tde2e"
-    cmake --build build
+    cmake --build build -- -l"${_ninja_load}"
 }
 package() {
     DESTDIR="$pkgdir" cmake --install build
