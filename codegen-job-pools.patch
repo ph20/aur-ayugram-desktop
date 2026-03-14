@@ -1,0 +1,62 @@
+--- a/cmake/external/glib/generate_dbus.cmake
++++ b/cmake/external/glib/generate_dbus.cmake
+@@ -20,6 +20,10 @@
+         ${gen_dst}/${target_name}_${namespace}_dbus.h
+     )
+ 
++    if(CMAKE_GENERATOR MATCHES "[Nn]inja")
++        set_property(SOURCE ${gen_timestamp} ${gen_files} PROPERTY JOB_POOL codegen)
++    endif()
++
+     add_custom_command(
+     OUTPUT
+         ${gen_timestamp}
+--- a/cmake/external/glib/generate_cppgir.cmake
++++ b/cmake/external/glib/generate_cppgir.cmake
+@@ -13,6 +13,10 @@
+ 
+     set(gen_timestamp ${gen_dst}/${target_name}_cppgir.timestamp)
+ 
++    if(CMAKE_GENERATOR MATCHES "[Nn]inja")
++        set_property(SOURCE ${gen_timestamp} PROPERTY JOB_POOL codegen)
++    endif()
++
+     set(ignore_files
+         ${cppgir_loc}/data/cppgir.ignore
+         ${cppgir_loc}/data/cppgir_unix.ignore
+--- a/cmake/external/glib/cppgir/CMakeLists.txt
++++ b/cmake/external/glib/cppgir/CMakeLists.txt
+@@ -235,6 +235,7 @@
+ set (EXAMPLES_LIBS "")
+ if (NOT GENERATED_DIR)
+     set (GENERATED_DIR ${GENERATED_DIR_DEFAULT})
+ endif ()
++set(GENERATED_STAMP ${GENERATED_DIR}/cppgir-examples.timestamp)
+ # arguments to generator
+ if (NOT DEFINED GENERATED_ARGS_DEFAULT)
+     set(GENERATED_ARGS_DEFAULT --class --class-full --call-args 0 --basic-collection)
+@@ -441,13 +442,19 @@
+-add_custom_command(OUTPUT ${GENERATED_DIR}
++add_custom_command(OUTPUT ${GENERATED_STAMP}
+     COMMENT "Generating wrapper code for: ${EXAMPLE_NS}"
+     DEPENDS cppgir ${GI_IGNORE_FILE_DIR}/${GI_IGNORE_FILE} ${GI_IGNORE_FILE_DIR}/${GI_IGNORE_FILE_PLATFORM}
+     COMMAND cppgir ${GENERATED_ARGS} ${GENERATED_IGNORE}
+         --output ${GENERATED_DIR} ${EXAMPLE_NS}
+     COMMAND cmake -E touch_nocreate ${GENERATED_DIR}
++    COMMAND cmake -E touch ${GENERATED_STAMP}
+     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
++
++if(CMAKE_GENERATOR MATCHES "[Nn]inja")
++    # Run wrapper generation one-at-a-time to limit memory spikes.
++    set_property(SOURCE ${GENERATED_STAMP} PROPERTY JOB_POOL codegen)
++endif()
+ 
+ # example might have been added if dependencies found
+ # make sure to disable as needed
+ if (NOT BUILD_EXAMPLES)
+@@ -461,7 +468,7 @@
+-add_custom_target(wrappers DEPENDS ${GENERATED_DIR})
++add_custom_target(wrappers DEPENDS ${GENERATED_STAMP})
+ foreach (example ${EXAMPLE_TARGETS})
+     target_link_libraries(${example} PRIVATE gi ${EXAMPLES_LIBS})
+     target_include_directories(${example} PRIVATE ${GENERATED_DIR})
