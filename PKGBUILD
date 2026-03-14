@@ -210,12 +210,15 @@ prepare() {
     patch --verbose -Np1 -i "$srcdir/codegen-job-pools.patch"
 }
 build() {
-    # Cap parallelism by default; users can override via env.
-    : "${CMAKE_BUILD_PARALLEL_LEVEL:=4}"
+    # Cap parallelism by default to 60% of cores; users can override via env.
+    local _cpu_count=$(nproc)
+    (( _cpu_count < 1 )) && _cpu_count=1
+    : "${CMAKE_BUILD_PARALLEL_LEVEL:=$(( (_cpu_count * 60 + 99) / 100 ))}"
+    (( CMAKE_BUILD_PARALLEL_LEVEL < 1 )) && CMAKE_BUILD_PARALLEL_LEVEL=1
     export CMAKE_BUILD_PARALLEL_LEVEL
 
-    # Keep Ninja from oversubscribing CPU under load (default: half the cores, min 1).
-    local _ninja_load=${NINJA_MAX_LOAD:-$(( $(nproc) / 2 ))}
+    # Keep Ninja from oversubscribing CPU under load (default: same as job count, min 1).
+    local _ninja_load=${NINJA_MAX_LOAD:-$CMAKE_BUILD_PARALLEL_LEVEL}
     (( _ninja_load < 1 )) && _ninja_load=1
     cmake -B td-$_tdlib_commit/build -S td-$_tdlib_commit -G Ninja \
         -DCMAKE_JOB_POOLS=link=1 \
